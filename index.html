@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Стереографические проекции — Классический стиль</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #e8ecf1;
+            color: #333;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 360px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        #sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+        #sidebar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+
+        #main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+        }
+
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-right: 1px solid rgba(0,0,0,0.1);
+        }
+
+        #viewer3d-container {
+            flex: 1;
+            position: relative;
+            background: #d8dee6; /* Slightly darker than body for contrast */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        #viewer3d-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.8);
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        canvas {
+            background: #ffffff;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, 0.05);
+            cursor: crosshair;
+            transition: box-shadow 0.3s;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin-top: 0;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            margin: 20px 0 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+
+        .tool-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ecf0f1;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+            font-size: 0.9rem;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+        }
+
+        .tool-btn:hover { background: rgba(255, 255, 255, 0.1); }
+        .tool-btn.active {
+            background: #3498db;
+            border-color: #2980b9;
+            color: #fff;
+        }
+
+        .tool-btn .color-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: inline-block;
+            background: #fff;
+            border: 2px solid #000;
+        }
+
+        .generator-box {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #7f8c8d;
+            background: #ecf0f1;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 1.05rem;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .gen-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2ecc71;
+            border: 1px solid #27ae60;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .gen-btn:hover {
+            background: #27ae60;
+        }
+
+        .controls { display: flex; gap: 10px; margin-top: 15px; }
+        .controls button {
+            flex: 1; padding: 10px; background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2); color: white;
+            border-radius: 6px; cursor: pointer; transition: all 0.2s;
+        }
+        .controls button:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto; /* allow scrolling */
+                height: auto;
+            }
+            #sidebar {
+                width: 100%;
+                box-sizing: border-box;
+                flex: none;
+                padding: 15px;
+            }
+            #main-content {
+                flex-direction: column;
+            }
+            #canvas-container {
+                border-right: none;
+                border-bottom: 1px solid rgba(0,0,0,0.1);
+                min-height: 400px;
+                padding: 20px 0;
+            }
+            #viewer3d-container {
+                min-height: 400px;
+            }
+            #mainCanvas {
+                width: 90% !important;
+                height: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <div id="sidebar">
+        <h1>Симметрия Кристаллов</h1>
+        <p class="subtitle">Генератор проекций в классическом академическом стиле.</p>
+
+        <div class="generator-box">
+            <div style="font-size: 0.9rem; margin-bottom: 8px; color: #bdc3c7;">Формула симметрии:</div>
+            <input type="text" id="formula-input" placeholder="3L4 4L3 6L2 9P C">
+            <button class="gen-btn" onclick="generateFromFormula()">Построить проекцию</button>
+            <div id="formula-status" style="margin-top: 12px; font-size: 0.85rem; line-height: 1.4; color: #bdc3c7; font-weight: 500;"></div>
+        </div>
+
+        <div class="section-title">Ручные инструменты</div>
+        <button class="tool-btn active" data-mode="pointer">
+            <span class="color-indicator" style="background: transparent; border: 1px dashed #ecf0f1;"></span>Указатель
+        </button>
+        <button class="tool-btn" data-mode="vert_plane">
+            <span class="color-indicator"></span>Вертикальная пл.
+        </button>
+        <button class="tool-btn" data-mode="horiz_plane">
+            <span class="color-indicator"></span>Горизонтальная пл.
+        </button>
+        <button class="tool-btn" data-mode="inc_plane">
+            <span class="color-indicator"></span>Наклонная пл.
+        </button>
+        <button class="tool-btn" data-mode="pole">
+            <span class="color-indicator" style="background: #000;"></span>Полюс (Shift - низ)
+        </button>
+
+        <label style="display:flex; align-items:center; margin-top: 15px; cursor: pointer;">
+            <input type="checkbox" id="wulff-net" style="margin-right: 10px; width: 16px; height:16px;">
+            <span style="font-size: 0.9rem;">Сетка Вульфа</span>
+        </label>
+
+        <label style="display:flex; align-items:center; margin-top: 10px; cursor: pointer;">
+            <input type="checkbox" id="toggle-3d" checked style="margin-right: 10px; width: 16px; height:16px;">
+            <span style="font-size: 0.9rem;">Показать 3D-модель</span>
+        </label>
+
+        <div class="controls" style="margin-top: 20px;">
+            <button onclick="undo()">Отменить</button>
+            <button onclick="clearCanvas()" style="color: #e74c3c; border-color: rgba(231,76,60,0.5);">Очистить</button>
+        </div>
+        
+        <div class="controls">
+            <button onclick="downloadImage()">Сохранить PNG</button>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div id="canvas-container">
+            <canvas id="mainCanvas" width="800" height="800" style="width: 100%; max-width: 600px; max-height: 600px; object-fit: contain; aspect-ratio: 1/1; margin: auto;"></canvas>
+        </div>
+        <div id="viewer3d-container">
+            <div id="viewer3d-overlay">3D Модель</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const R = 360; 
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        let mode = 'pointer';
+        let elements = [];
+        let history = [];
+        let tempElement = null;
+        let isShift = false;
+
+        const wulffCheckbox = document.getElementById('wulff-net');
+        wulffCheckbox.addEventListener('change', draw);
+
+        const toggle3dCheckbox = document.getElementById('toggle-3d');
+        const viewer3dContainer = document.getElementById('viewer3d-container');
+        toggle3dCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                viewer3dContainer.style.display = 'flex';
+            } else {
+                viewer3dContainer.style.display = 'none';
+            }
+            // Trigger resize to fix layout
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 10);
+        });
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                const target = e.currentTarget;
+                target.classList.add('active');
+                mode = target.dataset.mode;
+                tempElement = null;
+                draw();
+            });
+        });
+
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Shift') isShift = true;
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') undo();
+            if (e.key === 'Enter' && document.activeElement.id === 'formula-input') generateFromFormula();
+        });
+        window.addEventListener('keyup', e => {
+            if (e.key === 'Shift') isShift = false;
+        });
+
+        function saveState() {
+            history.push(JSON.parse(JSON.stringify(elements)));
+        }
+
+        function undo() {
+            if (history.length > 0) {
+                elements = history.pop();
+                tempElement = null;
+                draw();
+            }
+        }
+
+        function clearCanvas() {
+            saveState();
+            elements = [];
+            tempElement = null;
+            document.getElementById('formula-status').innerText = '';
+            draw();
+        }
+
+        // =====================
+        // SYMMETRY LOGIC
+        // =====================
+
+        const classes = [
+            { sig: '0-0-0-0-0-0-0-0', fullName: 'Триклинная, Моноэдрический (1)', draw: [] },
+            { sig: '0-0-0-0-0-0-0-1', fullName: 'Триклинная, Пинакоидальный (-1)', draw: ['C'] },
+            { sig: '1-0-0-0-0-0-0-0', fullName: 'Моноклинная, Диэдрический осевой (2)', draw: [['L2',0,0]] },
+            { sig: '0-0-0-0-0-0-1-0', fullName: 'Моноклинная, Диэдрический безосный (m)', draw: [['P_vert',90]] },
+            { sig: '1-0-0-0-0-0-1-1', fullName: 'Моноклинная, Призматический (2/m)', draw: [['L2',0,0], 'P_horiz', 'C'] },
+            
+            { sig: '3-0-0-0-0-0-0-0', fullName: 'Ромбическая, Ромбо-бисфеноидальный (222)', draw: [['L2',0,0], ['L2',90,0], ['L2',90,90]] },
+            { sig: '1-0-0-0-0-0-2-0', fullName: 'Ромбическая, Ромбо-пирамидальный (mm2)', draw: [['L2',0,0], ['P_vert',0], ['P_vert',90]] },
+            { sig: '3-0-0-0-0-0-3-1', fullName: 'Ромбическая, Ромбо-дипирамидальный (mmm)', draw: [['L2',0,0], ['L2',90,0], ['L2',90,90], ['P_vert',0], ['P_vert',90], 'P_horiz', 'C'] },
+            
+            { sig: '0-0-1-0-0-0-0-0', fullName: 'Тетрагональная, Тетрагонально-пирамидальный (4)', draw: [['L4',0,0]] },
+            { sig: '0-0-0-0-1-0-0-0', fullName: 'Тетрагональная, Тетрагонально-тетраэдрический (-4)', draw: [['Li4',0,0]] },
+            { sig: '4-0-1-0-0-0-0-0', fullName: 'Тетрагональная, Тетрагонально-трапецоэдрический (422)', draw: [['L4',0,0], ['L2',90,0], ['L2',90,45], ['L2',90,90], ['L2',90,135]] },
+            { sig: '0-0-1-0-0-0-4-0', fullName: 'Тетрагональная, Дитетрагонально-пирамидальный (4mm)', draw: [['L4',0,0], ['P_vert',0], ['P_vert',45], ['P_vert',90], ['P_vert',135]] },
+            { sig: '2-0-0-0-1-0-2-0', aliases: ['3-0-0-0-0-0-2-0'], fullName: 'Тетрагональная, Тетрагонально-скаленоэдрический (-42m)', draw: [['Li4',0,0], ['L2',90,0], ['L2',90,90], ['P_vert',45], ['P_vert',135]] },
+            { sig: '0-0-1-0-0-0-1-1', fullName: 'Тетрагональная, Тетрагонально-дипирамидальный (4/m)', draw: [['L4',0,0], 'P_horiz', 'C'] },
+            { sig: '4-0-1-0-0-0-5-1', fullName: 'Тетрагональная, Дитетрагонально-дипирамидальный (4/mmm)', draw: [['L4',0,0], ['L2',90,0], ['L2',90,45], ['L2',90,90], ['L2',90,135], ['P_vert',0], ['P_vert',45], ['P_vert',90], ['P_vert',135], 'P_horiz', 'C'] },
+
+            { sig: '0-1-0-0-0-0-0-0', fullName: 'Тригональная, Тригонально-пирамидальный (3)', draw: [['L3',0,0]] },
+            { sig: '0-1-0-0-0-0-0-1', fullName: 'Тригональная, Ромбоэдрический (-3)', draw: [['L3',0,0], 'C'] },
+            { sig: '3-1-0-0-0-0-0-0', fullName: 'Тригональная, Тригонально-трапецоэдрический (32)', draw: [['L3',0,0], ['L2',90,0], ['L2',90,60], ['L2',90,120]] },
+            { sig: '0-1-0-0-0-0-3-0', fullName: 'Тригональная, Дитригонально-пирамидальный (3m)', draw: [['L3',0,0], ['P_vert',30], ['P_vert',90], ['P_vert',150]] },
+            { sig: '3-1-0-0-0-0-3-1', fullName: 'Тригональная, Дитригонально-скаленоэдрический (-3m)', draw: [['L3',0,0], ['L2',90,0], ['L2',90,60], ['L2',90,120], ['P_vert',30], ['P_vert',90], ['P_vert',150], 'C'] },
+
+            { sig: '0-0-0-1-0-0-0-0', fullName: 'Гексагональная, Гексагонально-пирамидальный (6)', draw: [['L6',0,0]] },
+            { sig: '0-1-0-0-0-0-1-0', fullName: 'Гексагональная, Тригонально-дипирамидальный (-6)', draw: [['L3',0,0], 'P_horiz'] },
+            { sig: '6-0-0-1-0-0-0-0', fullName: 'Гексагональная, Гексагонально-трапецоэдрический (622)', draw: [['L6',0,0], ['L2',90,0], ['L2',90,30], ['L2',90,60], ['L2',90,90], ['L2',90,120], ['L2',90,150]] },
+            { sig: '0-0-0-1-0-0-6-0', fullName: 'Гексагональная, Дигексагонально-пирамидальный (6mm)', draw: [['L6',0,0], ['P_vert',0], ['P_vert',30], ['P_vert',60], ['P_vert',90], ['P_vert',120], ['P_vert',150]] },
+            { sig: '3-1-0-0-0-0-4-0', fullName: 'Гексагональная, Дитригонально-дипирамидальный (-6m2)', draw: [['L3',0,0], ['L2',90,0], ['L2',90,60], ['L2',90,120], ['P_vert',30], ['P_vert',90], ['P_vert',150], 'P_horiz'] },
+            { sig: '0-0-0-1-0-0-1-1', fullName: 'Гексагональная, Гексагонально-дипирамидальный (6/m)', draw: [['L6',0,0], 'P_horiz', 'C'] },
+            { sig: '6-0-0-1-0-0-7-1', fullName: 'Гексагональная, Дигексагонально-дипирамидальный (6/mmm)', draw: [['L6',0,0], ['L2',90,0], ['L2',90,30], ['L2',90,60], ['L2',90,90], ['L2',90,120], ['L2',90,150], ['P_vert',0], ['P_vert',30], ['P_vert',60], ['P_vert',90], ['P_vert',120], ['P_vert',150], 'P_horiz', 'C'] },
+
+            { sig: '3-4-0-0-0-0-0-0', fullName: 'Кубическая, Пентагон-тритетраэдрический (23)', draw: [['L2',0,0], ['L2',90,0], ['L2',90,90], ['L3',54.7356,45], ['L3',54.7356,135], ['L3',54.7356,225], ['L3',54.7356,315]] },
+            { sig: '3-4-0-0-0-0-3-1', fullName: 'Кубическая, Дидодекаэдрический (m-3)', draw: [['L2',0,0], ['L2',90,0], ['L2',90,90], ['L3',54.7356,45], ['L3',54.7356,135], ['L3',54.7356,225], ['L3',54.7356,315], ['P_vert',0], ['P_vert',90], 'P_horiz', 'C'] },
+            { sig: '6-4-3-0-0-0-0-0', fullName: 'Кубическая, Пентагон-триоктаэдрический (432)', draw: [['L4',0,0], ['L4',90,0], ['L4',90,90], ['L3',54.7356,45], ['L3',54.7356,135], ['L3',54.7356,225], ['L3',54.7356,315], ['L2',90,45], ['L2',90,135], ['L2',45,0], ['L2',45,90], ['L2',45,180], ['L2',45,270]] },
+            { sig: '0-4-0-0-3-0-6-0', aliases: ['3-4-0-0-0-0-6-0'], fullName: 'Кубическая, Гексатетраэдрический (-43m)', draw: [['Li4',0,0], ['Li4',90,0], ['Li4',90,90], ['L3',54.7356,45], ['L3',54.7356,135], ['L3',54.7356,225], ['L3',54.7356,315], ['P_vert',45], ['P_vert',135], ['P_inc',0,45], ['P_inc',90,45], ['P_inc',180,45], ['P_inc',270,45]] },
+            { sig: '6-4-3-0-0-0-9-1', fullName: 'Кубическая, Гексоктаэдрический (m-3m)', draw: [['L4',0,0], ['L4',90,0], ['L4',90,90], ['L3',54.7356,45], ['L3',54.7356,135], ['L3',54.7356,225], ['L3',54.7356,315], ['L2',90,45], ['L2',90,135], ['L2',45,0], ['L2',45,90], ['L2',45,180], ['L2',45,270], ['P_vert',0], ['P_vert',90], ['P_vert',45], ['P_vert',135], ['P_inc',0,45], ['P_inc',90,45], ['P_inc',180,45], ['P_inc',270,45], 'P_horiz', 'C'] }
+        ];
+
+        function polarToCartesian(rho, phi) {
+            const r = R * Math.tan((rho / 2) * Math.PI / 180);
+            const x = r * Math.cos(phi * Math.PI / 180);
+            const y = r * Math.sin(phi * Math.PI / 180);
+            return { x, y };
+        }
+
+        function generateFromFormula() {
+            const input = document.getElementById('formula-input').value;
+            if (!input.trim()) return;
+
+            let str = input.toUpperCase()
+                .replace(/Л/g, 'L')
+                .replace(/Р/g, 'P')
+                .replace(/П/g, 'P')
+                .replace(/С/g, 'C')
+                .replace(/Ц/g, 'C')
+                .replace(/И/g, 'I')
+                .replace(/²/g, '2')
+                .replace(/³/g, '3')
+                .replace(/⁴/g, '4')
+                .replace(/⁶/g, '6')
+                .replace(/[·\.,\*X\n\r]/g, ' ');
+            
+            let L2=0, L3=0, L4=0, L6=0, Li4=0, P=0, C=0;
+            
+            str = str.replace(/(\d*)\s*L\s*I\s*2/g, (m, c) => { P += parseInt(c || '1', 10); return ''; });
+            str = str.replace(/(\d*)\s*L\s*2\s*I/g, (m, c) => { P += parseInt(c || '1', 10); return ''; });
+            
+            str = str.replace(/(\d*)\s*L\s*I\s*3/g, (m, c) => { L3 += parseInt(c || '1', 10); C = 1; return ''; });
+            str = str.replace(/(\d*)\s*L\s*3\s*I/g, (m, c) => { L3 += parseInt(c || '1', 10); C = 1; return ''; });
+
+            str = str.replace(/(\d*)\s*L\s*I\s*4/g, (m, c) => { Li4 += parseInt(c || '1', 10); return ''; });
+            str = str.replace(/(\d*)\s*L\s*4\s*I/g, (m, c) => { Li4 += parseInt(c || '1', 10); return ''; });
+
+            str = str.replace(/(\d*)\s*L\s*I\s*6/g, (m, c) => { L3 += parseInt(c || '1', 10); P += parseInt(c || '1', 10); return ''; });
+            str = str.replace(/(\d*)\s*L\s*6\s*I/g, (m, c) => { L3 += parseInt(c || '1', 10); P += parseInt(c || '1', 10); return ''; });
+
+            str = str.replace(/(\d*)\s*L\s*([2346])/g, (m, c, n) => {
+                let count = parseInt(c || '1', 10);
+                if (n === '2') L2 += count;
+                if (n === '3') L3 += count;
+                if (n === '4') L4 += count;
+                if (n === '6') L6 += count;
+                return '';
+            });
+            
+            str = str.replace(/(\d*)\s*P/g, (m, c) => { P += parseInt(c || '1', 10); return ''; });
+            if (str.includes('C')) C = 1;
+
+            const sig = `${L2}-${L3}-${L4}-${L6}-${Li4}-0-${P}-${C}`;
+            let matchedClass = classes.find(c => c.sig === sig || (c.aliases && c.aliases.includes(sig)));
+            let isExact = true;
+
+            if (!matchedClass) {
+                // Нечеткий поиск (Fuzzy search) для автоисправления опечаток и невозможных классов
+                let minDistance = Infinity;
+                for (const c of classes) {
+                    const cParts = c.sig.split('-').map(Number);
+                    const uParts = [L2, L3, L4, L6, Li4, 0, P, C];
+                    
+                    // Высокий вес для главных осей, чтобы не перепутать сингонии
+                    const distL6 = Math.abs(cParts[3] - uParts[3]) * 20;
+                    const distL4 = Math.abs(cParts[2] - uParts[2]) * 20;
+                    const distL3 = Math.abs(cParts[1] - uParts[1]) * 20;
+                    const distLi4 = Math.abs(cParts[4] - uParts[4]) * 20;
+                    
+                    // Меньший вес для L2, P и C (в них чаще всего ошибаются)
+                    const distL2 = Math.abs(cParts[0] - uParts[0]) * 2;
+                    const distP = Math.abs(cParts[6] - uParts[6]) * 1;
+                    const distC = Math.abs(cParts[7] - uParts[7]) * 5;
+                                 
+                    const dist = distL6 + distL4 + distL3 + distLi4 + distL2 + distP + distC;
+                                 
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        matchedClass = c;
+                    }
+                }
+                isExact = false;
+            }
+
+            const statusBox = document.getElementById('formula-status');
+            
+            if (matchedClass) {
+                const p = matchedClass.sig.split('-');
+                let canon = [];
+                if (p[3] > 0) canon.push(p[3] > 1 ? p[3]+'L6' : 'L6');
+                if (p[2] > 0) canon.push(p[2] > 1 ? p[2]+'L4' : 'L4');
+                if (p[4] > 0) canon.push(p[4] > 1 ? p[4]+'Li4' : 'Li4');
+                if (p[1] > 0) canon.push(p[1] > 1 ? p[1]+'L3' : 'L3');
+                if (p[0] > 0) canon.push(p[0] > 1 ? p[0]+'L2' : 'L2');
+                if (p[6] > 0) canon.push(p[6] > 1 ? p[6]+'P' : 'P');
+                if (p[7] > 0) canon.push('C');
+                const prettyFormula = canon.join(' ');
+                
+                // Автоматически наводим красоту в поле ввода
+                document.getElementById('formula-input').value = prettyFormula;
+
+                let syngony = matchedClass.fullName.split(',')[0];
+                let category = 'Низшая';
+                if (['Тетрагональная', 'Тригональная', 'Гексагональная'].includes(syngony)) category = 'Средняя';
+                if (syngony === 'Кубическая') category = 'Высшая';
+                
+                let parts = matchedClass.fullName.split(', ');
+                let classAndSymbol = parts.length > 1 ? parts[1] : '';
+                let match = classAndSymbol.match(/(.*) \((.*)\)/);
+                let className = classAndSymbol;
+                let symbol = '';
+                if (match) {
+                    className = match[1];
+                    symbol = match[2];
+                }
+
+                const generalForms = {
+                    'Моноэдрический': 'Моноэдр',
+                    'Пинакоидальный': 'Пинакоид',
+                    'Диэдрический осевой': 'Диэдр (сфен)',
+                    'Диэдрический безосный': 'Диэдр (дома)',
+                    'Призматический': 'Ромбическая призма',
+                    'Ромбо-бисфеноидальный': 'Ромбический тетраэдр',
+                    'Ромбо-пирамидальный': 'Ромбическая пирамида',
+                    'Ромбо-дипирамидальный': 'Ромбическая дипирамида',
+                    'Тетрагонально-пирамидальный': 'Тетрагональная пирамида',
+                    'Тетрагонально-тетраэдрический': 'Тетрагональный тетраэдр',
+                    'Тетрагонально-трапецоэдрический': 'Тетрагональный трапецоэдр',
+                    'Дитетрагонально-пирамидальный': 'Дитетрагональная пирамида',
+                    'Тетрагонально-скаленоэдрический': 'Тетрагональный скаленоэдр',
+                    'Тетрагонально-дипирамидальный': 'Тетрагональная дипирамида',
+                    'Дитетрагонально-дипирамидальный': 'Дитетрагональная дипирамида',
+                    'Тригонально-пирамидальный': 'Тригональная пирамида',
+                    'Ромбоэдрический': 'Ромбоэдр',
+                    'Тригонально-трапецоэдрический': 'Тригональный трапецоэдр',
+                    'Дитригонально-пирамидальный': 'Дитригональная пирамида',
+                    'Дитригонально-скаленоэдрический': 'Дитригональный скаленоэдр',
+                    'Гексагонально-пирамидальный': 'Гексагональная пирамида',
+                    'Тригонально-дипирамидальный': 'Тригональная дипирамида',
+                    'Гексагонально-трапецоэдрический': 'Гексагональный трапецоэдр',
+                    'Дигексагонально-пирамидальный': 'Дигексагональная пирамида',
+                    'Дитригонально-дипирамидальный': 'Дитригональная дипирамида',
+                    'Гексагонально-дипирамидальный': 'Гексагональная дипирамида',
+                    'Дигексагонально-дипирамидальный': 'Дигексагональная дипирамида',
+                    'Пентагон-тритетраэдрический': 'Пентагон-тритетраэдр',
+                    'Дидодекаэдрический': 'Дидодекаэдр',
+                    'Пентагон-триоктаэдрический': 'Пентагон-триоктаэдр',
+                    'Гексатетраэдрический': 'Гексатетраэдр',
+                    'Гексоктаэдрический': 'Гексоктаэдр'
+                };
+
+                let genForm = generalForms[className] || 'Не определена';
+
+                let detailsHtml = `
+                    <div style="margin-top: 10px; font-size: 0.85rem; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); line-height: 1.6;">
+                        <div style="display: flex; justify-content: space-between;"><span style="color: #95a5a6;">Категория:</span> <strong style="color: #ecf0f1;">${category}</strong></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: #95a5a6;">Сингония:</span> <strong style="color: #ecf0f1;">${syngony}</strong></div>
+                        <div style="display: flex; justify-content: space-between;"><span style="color: #95a5a6;">Класс:</span> <strong style="color: #3498db; text-align: right;">${className}</strong></div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05);"><span style="color: #95a5a6;">Общая простая форма:</span> <strong style="color: #f39c12; text-align: right;">${genForm}</strong></div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05);"><span style="color: #95a5a6;">Символ (Г.-М.):</span> <strong style="color: #e74c3c; font-family: monospace; font-size: 0.95rem;">${symbol}</strong></div>
+                    </div>
+                `;
+
+                if (isExact) {
+                    statusBox.innerHTML = '✅ Распознано успешно:' + detailsHtml;
+                } else {
+                    statusBox.innerHTML = '⚠️ Найдена опечатка. Исправлено на: <strong style="color:#f1c40f;">' + prettyFormula + '</strong>' + detailsHtml;
+                }
+                
+                if (typeof update3DModel === 'function') {
+                    update3DModel(matchedClass.fullName);
+                }
+                
+                saveState();
+                elements = [];
+                
+                for (const el of matchedClass.draw) {
+                    if (el === 'P_horiz') {
+                        elements.push({ type: 'horiz_plane' });
+                    } else if (el[0] === 'P_vert') {
+                        elements.push({ type: 'vert_plane', angle: el[1] * Math.PI / 180 });
+                    } else if (el[0] === 'P_inc') {
+                        const strike = el[1] * Math.PI / 180;
+                        const dip = el[2];
+                        const d = R * Math.tan((90 - dip) / 2 * Math.PI / 180);
+                        elements.push({ type: 'inc_plane', strike: strike, d: d });
+                    } else if (el === 'C') {
+                        elements.push({ type: 'symm_axis', subtype: 'C', x: 0, y: 0, rotation: 0 });
+                    } else {
+                        const subtype = el[0];
+                        const rho = el[1];
+                        const phi = el[2];
+                        const pos = polarToCartesian(rho, phi);
+                        const rotation = (rho > 0) ? phi : 0;
+                        
+                        elements.push({ type: 'symm_axis', subtype, x: pos.x, y: pos.y, rotation });
+                        
+                        if (rho === 90) {
+                            const oppPos = polarToCartesian(rho, phi + 180);
+                            elements.push({ type: 'symm_axis', subtype, x: oppPos.x, y: oppPos.y, rotation: rotation + 180 });
+                        }
+                    }
+                }
+                
+                autoGeneratePoles(matchedClass.draw);
+                
+                draw();
+            } else {
+                statusBox.innerHTML = '❌ Класс не найден.<br>Убедитесь, что формула введена корректно.';
+            }
+        }
+
+        function autoGeneratePoles(drawParams) {
+            // General starting position
+            const startRho = 65 * Math.PI / 180;
+            const startPhi = 12 * Math.PI / 180;
+            const startV = new THREE.Vector3(
+                Math.sin(startRho) * Math.sin(startPhi),
+                Math.sin(startRho) * Math.cos(startPhi),
+                Math.cos(startRho)
+            );
+
+            let orbit = [startV];
+            let added = true;
+            
+            const ops = [];
+            for (const el of drawParams) {
+                if (el === 'P_horiz') {
+                    ops.push(v => new THREE.Vector3(v.x, v.y, -v.z));
+                } else if (el === 'C') {
+                    ops.push(v => new THREE.Vector3(-v.x, -v.y, -v.z));
+                } else if (el[0] === 'P_vert') {
+                    const alpha = el[1] * Math.PI / 180;
+                    const n = new THREE.Vector3(-Math.cos(alpha), Math.sin(alpha), 0).normalize();
+                    ops.push(v => v.clone().reflect(n));
+                } else if (el[0] === 'P_inc') {
+                    const strike = el[1] * Math.PI / 180;
+                    const dip = el[2] * Math.PI / 180;
+                    const n = new THREE.Vector3(
+                        Math.sin(dip) * Math.sin(strike - Math.PI/2),
+                        Math.sin(dip) * Math.cos(strike - Math.PI/2),
+                        Math.cos(dip)
+                    ).normalize();
+                    ops.push(v => v.clone().reflect(n));
+                } else if (['L2', 'L3', 'L4', 'L6', 'Li4'].includes(el[0])) {
+                    const rho = el[1] * Math.PI / 180;
+                    const phi = el[2] * Math.PI / 180;
+                    const axis = new THREE.Vector3(
+                        Math.sin(rho) * Math.sin(phi),
+                        Math.sin(rho) * Math.cos(phi),
+                        Math.cos(rho)
+                    ).normalize();
+                    
+                    let n = 2;
+                    if (el[0] === 'L3') n = 3;
+                    if (el[0] === 'L4' || el[0] === 'Li4') n = 4;
+                    if (el[0] === 'L6') n = 6;
+                    
+                    for (let i = 1; i < n; i++) {
+                        const angle = i * 2 * Math.PI / n;
+                        if (el[0] === 'Li4') {
+                            ops.push(v => {
+                                let res = v.clone();
+                                for (let step = 0; step < i; step++) {
+                                    res.applyAxisAngle(axis, 2 * Math.PI / 4).negate();
+                                }
+                                return res;
+                            });
+                        } else {
+                            ops.push(v => v.clone().applyAxisAngle(axis, angle));
+                        }
+                    }
+                }
+            }
+
+            // Generate full orbit
+            while (added) {
+                added = false;
+                const currentLen = orbit.length;
+                for (let i = 0; i < currentLen; i++) {
+                    const pt = orbit[i];
+                    for (const op of ops) {
+                        const newPt = op(pt);
+                        let exists = false;
+                        for (const existing of orbit) {
+                            if (existing.distanceTo(newPt) < 0.001) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            orbit.push(newPt);
+                            added = true;
+                        }
+                    }
+                }
+            }
+
+            // Project to 2D
+            for (const pt of orbit) {
+                let isBottom = pt.z < -0.0001;
+                let absZ = Math.max(-1, Math.min(1, Math.abs(pt.z)));
+                const rho = Math.acos(absZ); 
+                
+                const rXY = Math.sqrt(pt.x * pt.x + pt.y * pt.y);
+                let screenX = 0;
+                let screenY = 0;
+                if (rXY > 0.0001) {
+                    const r = R * Math.tan(rho / 2);
+                    screenX = r * pt.x / rXY;
+                    screenY = -r * pt.y / rXY;
+                }
+                elements.push({ type: 'pole', x: screenX, y: screenY, isBottom: isBottom });
+            }
+        }
+
+        // =====================
+        // DRAWING LOGIC
+        // =====================
+
+        function drawSymbol(type, x, y, rotation) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation * Math.PI / 180);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2.5;
+            
+            const s = 11; 
+            
+            if (type === 'L2') {
+                ctx.beginPath();
+                ctx.ellipse(0, 0, s*1.3, s*0.65, 0, 0, 2*Math.PI);
+                ctx.fill(); ctx.stroke();
+            } else if (type === 'L3') {
+                ctx.beginPath();
+                ctx.moveTo(s*1.25, 0);
+                ctx.lineTo(-s*0.625, s*1.08);
+                ctx.lineTo(-s*0.625, -s*1.08);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else if (type === 'L4') {
+                ctx.beginPath();
+                ctx.rect(-s*0.9, -s*0.9, s*1.8, s*1.8);
+                ctx.fill(); ctx.stroke();
+            } else if (type === 'L6') {
+                ctx.beginPath();
+                for(let i=0; i<6; i++) {
+                    const a = i * Math.PI / 3;
+                    if(i===0) ctx.moveTo(s*1.15*Math.cos(a), s*1.15*Math.sin(a));
+                    else ctx.lineTo(s*1.15*Math.cos(a), s*1.15*Math.sin(a));
+                }
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            } else if (type === 'Li4') {
+                ctx.beginPath();
+                ctx.rect(-s*0.9, -s*0.9, s*1.8, s*1.8);
+                ctx.fill(); ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(0, 0, s*0.4, 0, Math.PI*2);
+                ctx.stroke();
+            } else if (type === 'C') {
+                ctx.beginPath();
+                ctx.arc(0, 0, s*0.4, 0, 2*Math.PI);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = (e.clientX - rect.left) * scaleX;
+            const clientY = (e.clientY - rect.top) * scaleY;
+            const x = clientX - centerX;
+            const y = centerY - clientY;
+            return { x, y };
+        }
+
+        canvas.addEventListener('mousedown', e => {
+            if (mode === 'pointer') return;
+            const { x, y } = getMousePos(e);
+            const dist = Math.sqrt(x*x + y*y);
+
+            if (mode === 'horiz_plane') {
+                saveState();
+                elements.push({ type: 'horiz_plane' });
+                draw();
+            } else if (mode === 'vert_plane') {
+                saveState();
+                elements.push({ type: 'vert_plane', angle: Math.atan2(y, x) });
+                draw();
+            } else if (mode === 'pole') {
+                if (dist <= R + 15) { 
+                    saveState();
+                    elements.push({ type: 'pole', x, y, isBottom: e.shiftKey });
+                    draw();
+                }
+            } else if (mode === 'inc_plane') {
+                if (!tempElement) {
+                    tempElement = { type: 'inc_plane', strike: Math.atan2(y, x), d: 0 };
+                } else {
+                    saveState();
+                    elements.push(tempElement);
+                    tempElement = null;
+                    draw();
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (mode === 'inc_plane' && tempElement) {
+                const { x, y } = getMousePos(e);
+                const perp = tempElement.strike + Math.PI / 2;
+                let d = x * Math.cos(perp) + y * Math.sin(perp);
+                d = Math.max(-R + 1, Math.min(R - 1, d));
+                tempElement.d = d;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            if (tempElement) {
+                tempElement = null;
+                draw();
+            }
+        });
+
+        function drawWulffNet() {
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.lineWidth = 1;
+            for (let lambda = -80; lambda <= 80; lambda += 10) {
+                const rad = lambda * Math.PI / 180;
+                ctx.beginPath();
+                for (let phi = -90; phi <= 90; phi += 2) {
+                    const prad = phi * Math.PI / 180;
+                    const denom = 1 + Math.cos(prad) * Math.cos(rad);
+                    const X = R * (Math.cos(prad) * Math.sin(rad)) / denom;
+                    const Y = R * Math.sin(prad) / denom;
+                    if (phi === -90) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+                }
+                ctx.stroke();
+            }
+            for (let phi = -80; phi <= 80; phi += 10) {
+                const prad = phi * Math.PI / 180;
+                ctx.beginPath();
+                for (let lambda = -90; lambda <= 90; lambda += 2) {
+                    const rad = lambda * Math.PI / 180;
+                    const denom = 1 + Math.cos(prad) * Math.cos(rad);
+                    const X = R * (Math.cos(prad) * Math.sin(rad)) / denom;
+                    const Y = R * Math.sin(prad) / denom;
+                    if (lambda === -90) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        function pathIncPlane(strike, d) {
+            if (Math.abs(d) < 0.1) {
+                ctx.save();
+                ctx.rotate(strike);
+                ctx.moveTo(R, 0);
+                ctx.lineTo(-R, 0);
+                ctx.restore();
+            } else {
+                const cy = (d * d - R * R) / (2 * d);
+                const r = (d * d + R * R) / (2 * Math.abs(d));
+                const theta1 = Math.atan2(-cy, R);
+                const theta2 = Math.atan2(-cy, -R);
+                ctx.save();
+                ctx.rotate(strike);
+                ctx.moveTo(R, 0); // Important to prevent line connections
+                ctx.arc(0, cy, r, theta1, theta2, d < 0);
+                ctx.restore();
+            }
+        }
+
+        function drawPlanesPass(color, widthValue) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = widthValue;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'butt';
+            
+            ctx.beginPath();
+            for (const el of elements) {
+                if (el.type === 'horiz_plane') {
+                    ctx.moveTo(R, 0);
+                    ctx.arc(0, 0, R, 0, 2 * Math.PI);
+                } else if (el.type === 'vert_plane') {
+                    ctx.moveTo(R * Math.cos(el.angle), R * Math.sin(el.angle));
+                    ctx.lineTo(-R * Math.cos(el.angle), -R * Math.sin(el.angle));
+                } else if (el.type === 'inc_plane') {
+                    pathIncPlane(el.strike, el.d);
+                }
+            }
+            ctx.stroke();
+        }
+
+        function drawBase() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.scale(1, -1);
+            
+            if (wulffCheckbox.checked) drawWulffNet();
+
+            // Center mark
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
+            ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        function drawElements() {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.scale(1, -1);
+
+            // PASS 1: Thick Black Lines
+            drawPlanesPass('#000000', 7);
+            
+            // PASS 2: Thin White Lines (Creates the 'hollow' double-line effect)
+            drawPlanesPass('#ffffff', 3.5);
+
+            // Draw Temporary element
+            if (tempElement && tempElement.type === 'inc_plane') {
+                ctx.beginPath();
+                ctx.moveTo(R * Math.cos(tempElement.strike), R * Math.sin(tempElement.strike));
+                ctx.lineTo(-R * Math.cos(tempElement.strike), -R * Math.sin(tempElement.strike));
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                if (tempElement.d !== null) {
+                    ctx.beginPath();
+                    pathIncPlane(tempElement.strike, tempElement.d);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 7;
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    pathIncPlane(tempElement.strike, tempElement.d);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 3.5;
+                    ctx.stroke();
+                }
+            }
+
+            // Thin bounding circle if no horiz_plane is present
+            const hasHoriz = elements.some(el => el.type === 'horiz_plane');
+            if (!hasHoriz) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, R, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+
+            // Group poles by coordinate
+            const poles = elements.filter(el => el.type === 'pole');
+            const mergedPoles = [];
+            for (const p of poles) {
+                let found = false;
+                for (const mp of mergedPoles) {
+                    const dx = p.x - mp.x;
+                    const dy = p.y - mp.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 2) {
+                        if (p.isBottom !== mp.isBottom) {
+                            mp.isBoth = true;
+                        }
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    mergedPoles.push({ ...p, isBoth: false });
+                }
+            }
+
+            // PASS 3: Symbols (Axes & Poles)
+            for (const el of elements) {
+                if (el.type === 'symm_axis') {
+                    let rotation = el.rotation;
+                    if (el.subtype === 'L2') {
+                        rotation += 90; // L2 is drawn tangentially
+                    }
+                    drawSymbol(el.subtype, el.x, el.y, rotation);
+                }
+            }
+            
+            // Draw merged poles
+            for (const el of mergedPoles) {
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(el.x, el.y, 6, 0, 2 * Math.PI);
+                if (el.isBoth) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill(); ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(el.x - 4.5, el.y);
+                    ctx.lineTo(el.x + 4.5, el.y);
+                    ctx.moveTo(el.x, el.y - 4.5);
+                    ctx.lineTo(el.x, el.y + 4.5);
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                } else if (el.isBottom) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill(); ctx.stroke();
+                } else {
+                    ctx.fillStyle = '#000000';
+                    ctx.fill();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            drawBase();
+            drawElements();
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'stereographic_projection.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Generate m-3m on load as default example
+        setTimeout(() => {
+            document.getElementById('formula-input').value = '3L4 4L3 6L2 9P C';
+            generateFromFormula();
+        }, 100);
+
+        // =====================
+        // 3D VIEWER LOGIC
+        // =====================
+        let scene, camera, renderer, crystalMesh, controls;
+
+        function init3D() {
+            const container = document.getElementById('viewer3d-container');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.z = 6;
+            camera.position.y = 2;
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            // Ensure canvas is absolutely positioned and fills container
+            renderer.domElement.style.position = 'absolute';
+            renderer.domElement.style.top = '0';
+            renderer.domElement.style.left = '0';
+            renderer.domElement.style.width = '100%';
+            renderer.domElement.style.height = '100%';
+            container.appendChild(renderer.domElement);
+            
+            // OrbitControls
+            if (typeof THREE.OrbitControls !== 'undefined') {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 1.0;
+                controls.enablePan = false;
+            }
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight1.position.set(5, 10, 7);
+            scene.add(dirLight1);
+            const dirLight2 = new THREE.DirectionalLight(0xdbeafe, 0.6);
+            dirLight2.position.set(-5, -5, -5);
+            scene.add(dirLight2);
+
+            // Initial rotation animation
+            function animate() {
+                requestAnimationFrame(animate);
+                if (controls) controls.update(); // Required if controls.enableDamping or controls.autoRotate are set
+                else if (crystalMesh) {
+                    crystalMesh.rotation.y += 0.005;
+                    crystalMesh.rotation.x += 0.002;
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        function update3DModel(className) {
+            if (!scene) return;
+
+            if (crystalMesh) {
+                scene.remove(crystalMesh);
+                // Dispose previous geometry/material to prevent memory leaks
+                if (crystalMesh.geometry) crystalMesh.geometry.dispose();
+                if (crystalMesh.material) crystalMesh.material.dispose();
+                // Dispose edges
+                crystalMesh.children.forEach(c => {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                });
+            }
+
+            let geom;
+            // Primitive heuristic mapping based on class name
+            if (className.includes('Кубическая')) {
+                if (className.includes('тетраэдрический')) {
+                    geom = new THREE.TetrahedronGeometry(1.6);
+                } else if (className.includes('Пентагон-') || className.includes('Дидодекаэдрический')) {
+                    geom = new THREE.DodecahedronGeometry(1.4);
+                } else {
+                    geom = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+                }
+            } else if (className.includes('Гексагональная')) {
+                if (className.includes('пирамидальный') && !className.includes('дипирамидальный')) {
+                    geom = new THREE.ConeGeometry(1.3, 2.5, 6);
+                    geom.translate(0, -0.5, 0); // Center mass
+                } else if (className.includes('Тетрагональная') || className.includes('Сфеноид')) {
+                    geom = new THREE.CylinderGeometry(1.2, 1.2, 2.5, 6);
+                } else {
+                    // Default hex prism for dipyramids and others
+                    geom = new THREE.CylinderGeometry(1.2, 1.2, 2.5, 6);
+                }
+            } else if (className.includes('Тетрагональная')) {
+                if (className.includes('пирамидальный') && !className.includes('дипирамидальный')) {
+                    geom = new THREE.ConeGeometry(1.3, 2.5, 4);
+                    geom.translate(0, -0.5, 0);
+                } else {
+                    geom = new THREE.CylinderGeometry(1.2, 1.2, 2.5, 4);
+                }
+            } else if (className.includes('Тригональная') || className.includes('Ромбоэдрический')) {
+                if (className.includes('Ромбоэдрический')) {
+                    geom = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+                } else {
+                    geom = new THREE.ConeGeometry(1.3, 2.5, 3);
+                    geom.translate(0, -0.5, 0);
+                }
+            } else {
+                // Fallback for lower symmetry (Orthorhombic, Monoclinic, Triclinic)
+                geom = new THREE.BoxGeometry(1.2, 2, 1.6);
+            }
+
+            // High quality shiny material
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0x3498db,
+                metalness: 0.1,
+                roughness: 0.2,
+                transparent: true,
+                opacity: 0.85,
+                transmission: 0.5, // glass-like
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                side: THREE.DoubleSide
+            });
+
+            crystalMesh = new THREE.Mesh(geom, material);
+            
+            // Add prominent dark edges for clarity
+            const edges = new THREE.EdgesGeometry(geom);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ 
+                color: 0x2c3e50, 
+                linewidth: 2 // Note: WebGL line width is usually 1, but we request 2
+            }));
+            crystalMesh.add(line);
+
+            scene.add(crystalMesh);
+        }
+
+        // Initialize 3D scene on window load
+        window.addEventListener('load', init3D);
+
+    </script>
+</body>
+</html>
